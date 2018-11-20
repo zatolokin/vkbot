@@ -188,8 +188,33 @@ def response_generator(data, id):
         vk.messages.send(user_id=id, message=r[1], keyboard=default_keyboard)
     else:
         QnA.create(qn=data['text'], answer=r[1], score=r[2])
-        vk.messages.send(user_id=id, message='Извините, не совсем Вас понимаю 😔', keyboard=default_keyboard)
+        responses = b.get(id, data['text'])
+        answered = False
+        for r in responses:
+            if r['answered']:
+                answered = True
+                keyboard = VkKeyboard(one_time=True)
+                if r.get('quickAnswers') is not None:
+                    for button in r['quickAnswers']:
+                        keyboard.add_button(label=button, color=VkKeyboardColor.DEFAULT)
+                        keyboard.add_line()
+                keyboard.add_button(label='Все возможности', color=VkKeyboardColor.DEFAULT, payload={'action': 'capabilities'})
+                vk.messages.send(user_id=id, message=r['generatedText'], keyboard=keyboard.get_keyboard())
+            else:
+                answered = True
+                if r['class'] == 'commands':
+                    show_capabilities(id)
+                elif user.token is not None:
+                    eljur_capab.change_state(r['class'])
+                    user.date = r['date']
+                    user.save()
+                    eljur_capab.get_content(id)
+                else:
+                    answered = False
+
+        if not answered:
+            vk.messages.send(user_id=id, message='Извините, не совсем Вас понимаю 😔', keyboard=default_keyboard)
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
+    app.run(host='0.0.0.0', port=80)
